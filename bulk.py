@@ -1,7 +1,7 @@
 # Example usage
 import os
 
-from main import place_pins_on_image
+from watermark import place_pins_on_image
 
 
 src_folder = "images/"

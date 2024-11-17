@@ -1,7 +1,11 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI,HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+from watermark import place_pins_on_image
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 import openai
@@ -10,6 +14,8 @@ import openai
 api_key = os.getenv("OPENAI_API_KEY")
 openai.api_key = api_key
 
+main_folder_path = f"/Users/amirbusiness/pCloud Drive/P- Main/Signaturo/Categories/"
+watermark_folder_output = f"/Users/amirbusiness/pCloud Drive/P- Main/Signaturo/Categories"
 
 def image_analysis(image_path):
     try:
@@ -35,6 +41,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/images", StaticFiles(directory=main_folder_path), name="images")
+
 
 @app.get("/")
 def read_root():
@@ -47,3 +55,54 @@ def read_root():
             "result": "Welcome to the API, Result From Python. Now we need to go external API to analyze",
             "description": response
     }
+
+
+
+@app.post("/imageWatermark")
+def image_watermark(image_path: str):
+    try:
+
+        # image_path = http://localhost:8000/images/test/003.png
+
+
+        category_folder = image_path.split("http://localhost:8000/images/")[1].split("/")[0]
+
+        image_path= main_folder_path+image_path.split("http://localhost:8000/images/")[1]
+
+        watermark_folder_output = f"/Users/amirbusiness/pCloud Drive/P- Main/Signaturo/Categories/{category_folder}/watermarked"
+        # watermark the image
+        place_pins_on_image(image_path, "pin.png", watermark_folder_output)
+        return {
+            "result": "Image Watermarked",
+            "description": "The image has been watermarked successfully."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/allImages/{subfolder}")
+def all_images(subfolder: str):
+    try:
+        # edit subfolder
+        app.subfolder = subfolder
+        # Get all the image files in the main folder
+        # folder=main_folder_path
+        folder= main_folder_path + subfolder
+        print(folder)
+        image_files = [image for image in os.listdir(folder) if image.endswith(('png', 'jpg', 'jpeg', 'gif'))]
+        print(image_files)
+        # Build the list of image URLs
+        image_urls = [f"http://localhost:8000/images/{subfolder}/{image}" for image in image_files]
+        return {
+            "result": "Success",
+            "images": image_urls
+        }
+    except Exception as e:
+        return {
+            "result": "Error",
+            "description": str(e)
+        }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
